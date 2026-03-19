@@ -1,4 +1,4 @@
-name: Docker Test Automation
+name: 🐳 Docker Test Automation
 
 on:
   push:
@@ -12,32 +12,53 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
+    - name: 📥 Checkout code
       uses: actions/checkout@v3
       
-    - name: Build Docker image
+    - name: 🔨 Build Docker image
       run: docker build -t swag-labs-tests .
       
-    - name: Run tests in container
+    - name: 🧪 Run tests in container
+      id: test_run
       run: |
         docker run -v ${{ github.workspace }}/allure-results:/app/target/allure-results swag-labs-tests
       continue-on-error: true
       
-    - name: Generate Allure Report
+    - name: 📊 Parse test results
+      id: test_results
+      if: always()
+      run: |
+        if [ -f "allure-results/testng-results.xml" ]; then
+          TOTAL=$(grep -oP 'total="\K[0-9]+' allure-results/testng-results.xml | head -1 || echo "0")
+          PASSED=$(grep -oP 'passed="\K[0-9]+' allure-results/testng-results.xml | head -1 || echo "0")
+          FAILED=$(grep -oP 'failed="\K[0-9]+' allure-results/testng-results.xml | head -1 || echo "0")
+          SKIPPED=$(grep -oP 'skipped="\K[0-9]+' allure-results/testng-results.xml | head -1 || echo "0")
+        else
+          TOTAL=0
+          PASSED=0
+          FAILED=0
+          SKIPPED=0
+        fi
+        echo "total=$TOTAL" >> $GITHUB_OUTPUT
+        echo "passed=$PASSED" >> $GITHUB_OUTPUT
+        echo "failed=$FAILED" >> $GITHUB_OUTPUT
+        echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+        
+    - name: 📈 Generate Allure Report
       uses: simple-elf/allure-report-action@master
       if: always()
       with:
         allure_results: allure-results
         allure_history: allure-history
         
-    - name: Deploy Allure Report to GitHub Pages
+    - name: 🚀 Deploy Allure Report to GitHub Pages
       if: always()
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: allure-history
         
-    - name: Send Email Notification
+    - name: 📧 Send Email Notification
       if: always()
       uses: dawidd6/action-send-mail@v3
       with:
@@ -45,27 +66,186 @@ jobs:
         server_port: 587
         username: ${{ secrets.EMAIL_USERNAME }}
         password: ${{ secrets.EMAIL_PASSWORD }}
-        subject: Test Execution Report - ${{ job.status }}
+        subject: "🧪 Test Report: ${{ job.status == 'success' && '✅ PASSED' || '❌ FAILED' }} - Swag Labs Tests"
         to: ${{ secrets.EMAIL_TO }}
-        from: Test Automation
-        body: |
-          Test execution completed with status: ${{ job.status }}
+        from: Swag Labs Test Automation <${{ secrets.EMAIL_USERNAME }}>
+        html_body: |
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }
+              .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+              .header h1 { margin: 0; font-size: 24px; }
+              .status { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin-top: 10px; }
+              .success { background: #10b981; color: white; }
+              .failure { background: #ef4444; color: white; }
+              .content { background: #f9fafb; padding: 30px; }
+              .stats { display: flex; justify-content: space-around; margin: 20px 0; }
+              .stat-box { text-align: center; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex: 1; margin: 0 5px; }
+              .stat-number { font-size: 32px; font-weight: bold; margin: 10px 0; }
+              .stat-label { color: #6b7280; font-size: 14px; text-transform: uppercase; }
+              .passed { color: #10b981; }
+              .failed { color: #ef4444; }
+              .skipped { color: #f59e0b; }
+              .total { color: #3b82f6; }
+              .info { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+              .info-row { display: flex; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+              .info-row:last-child { border-bottom: none; }
+              .info-label { font-weight: bold; width: 120px; color: #6b7280; }
+              .info-value { color: #111827; word-break: break-all; }
+              .button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 10px 5px; font-weight: bold; }
+              .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>🧪 Swag Labs Test Automation</h1>
+              <div class="status ${{ job.status == 'success' && 'success' || 'failure' }}">
+                ${{ job.status == 'success' && '✅ ALL TESTS PASSED' || '❌ TESTS FAILED' }}
+              </div>
+            </div>
+            <div class="content">
+              <div class="stats">
+                <div class="stat-box">
+                  <div class="stat-number total">${{ steps.test_results.outputs.total }}</div>
+                  <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-number passed">${{ steps.test_results.outputs.passed }}</div>
+                  <div class="stat-label">Passed</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-number failed">${{ steps.test_results.outputs.failed }}</div>
+                  <div class="stat-label">Failed</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-number skipped">${{ steps.test_results.outputs.skipped }}</div>
+                  <div class="stat-label">Skipped</div>
+                </div>
+              </div>
+              <div class="info">
+                <div class="info-row">
+                  <div class="info-label">📦 Repository:</div>
+                  <div class="info-value">${{ github.repository }}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">🌿 Branch:</div>
+                  <div class="info-value">${{ github.ref_name }}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">👤 Triggered by:</div>
+                  <div class="info-value">${{ github.actor }}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">💬 Commit:</div>
+                  <div class="info-value">${{ github.event.head_commit.message }}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">🔗 Commit SHA:</div>
+                  <div class="info-value">${{ github.sha }}</div>
+                </div>
+              </div>
+              <div style="text-align: center; margin-top: 30px;">
+                <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" class="button">📊 View Workflow Run</a>
+                <a href="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" class="button">📈 View Allure Report</a>
+              </div>
+            </div>
+            <div class="footer">
+              <p>🤖 Automated Test Execution | Powered by GitHub Actions & Docker</p>
+              <p>⏰ ${{ github.event.head_commit.timestamp }}</p>
+            </div>
+          </body>
+          </html>
           
-          Repository: ${{ github.repository }}
-          Branch: ${{ github.ref }}
-          Commit: ${{ github.sha }}
-          
-          View full report: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          
-    - name: Send Slack Notification
+    - name: 💬 Send Slack Notification
       if: always()
-      uses: 8398a7/action-slack@v3
+      uses: slackapi/slack-github-action@v1.25.0
       with:
-        status: ${{ job.status }}
-        text: |
-          Test Execution: ${{ job.status }}
-          Repository: ${{ github.repository }}
-          Branch: ${{ github.ref_name }}
-        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        payload: |
+          {
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "${{ job.status == 'success' && '✅' || '❌' }} Test Execution ${{ job.status == 'success' && 'Passed' || 'Failed' }}",
+                  "emoji": true
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Repository:*\n${{ github.repository }}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Branch:*\n${{ github.ref_name }}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Triggered by:*\n${{ github.actor }}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Workflow:*\n${{ github.workflow }}"
+                  }
+                ]
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Test Results:*\n• Total: ${{ steps.test_results.outputs.total }}\n• ✅ Passed: ${{ steps.test_results.outputs.passed }}\n• ❌ Failed: ${{ steps.test_results.outputs.failed }}\n• ⏭️ Skipped: ${{ steps.test_results.outputs.skipped }}"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Commit Message:*\n${{ github.event.head_commit.message }}"
+                }
+              },
+              {
+                "type": "divider"
+              },
+              {
+                "type": "actions",
+                "elements": [
+                  {
+                    "type": "button",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "📊 View Workflow",
+                      "emoji": true
+                    },
+                    "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                    "style": "primary"
+                  },
+                  {
+                    "type": "button",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "📈 Allure Report",
+                      "emoji": true
+                    },
+                    "url": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+                  },
+                  {
+                    "type": "button",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "💻 View Commit",
+                      "emoji": true
+                    },
+                    "url": "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+                  }
+                ]
+              }
+            ]
+          }
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
