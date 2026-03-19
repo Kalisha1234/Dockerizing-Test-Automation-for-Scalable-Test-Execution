@@ -29,21 +29,35 @@ jobs:
         docker run -v ${{ github.workspace }}/allure-results:/app/target/allure-results -v ${{ github.workspace }}/surefire-reports:/app/target/surefire-reports swag-labs-tests
       continue-on-error: true
       
+    - name: 🔍 Debug - List generated files
+      if: always()
+      run: |
+        echo "=== Listing allure-results ==="
+        ls -la allure-results/ || echo "allure-results directory not found"
+        echo "=== Listing surefire-reports ==="
+        ls -la surefire-reports/ || echo "surefire-reports directory not found"
+        echo "=== Searching for testng-results.xml ==="
+        find . -name "testng-results.xml" -type f || echo "testng-results.xml not found"
+      
     - name: 📊 Parse test results
       id: test_results
       if: always()
       run: |
         if [ -f "surefire-reports/testng-results.xml" ]; then
+          echo "Found testng-results.xml in surefire-reports"
+          cat surefire-reports/testng-results.xml
           TOTAL=$(grep -oP 'total="\K[0-9]+' surefire-reports/testng-results.xml | head -1 || echo "0")
           PASSED=$(grep -oP 'passed="\K[0-9]+' surefire-reports/testng-results.xml | head -1 || echo "0")
           FAILED=$(grep -oP 'failed="\K[0-9]+' surefire-reports/testng-results.xml | head -1 || echo "0")
           SKIPPED=$(grep -oP 'skipped="\K[0-9]+' surefire-reports/testng-results.xml | head -1 || echo "0")
         else
+          echo "testng-results.xml not found, checking alternative locations"
           TOTAL=0
           PASSED=0
           FAILED=0
           SKIPPED=0
         fi
+        echo "Results: Total=$TOTAL, Passed=$PASSED, Failed=$FAILED, Skipped=$SKIPPED"
         echo "total=$TOTAL" >> $GITHUB_OUTPUT
         echo "passed=$PASSED" >> $GITHUB_OUTPUT
         echo "failed=$FAILED" >> $GITHUB_OUTPUT
