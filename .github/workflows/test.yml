@@ -26,18 +26,18 @@ jobs:
     - name: 🧪 Run tests in container
       id: test_run
       run: |
-        docker run -v ${{ github.workspace }}/allure-results:/app/target/allure-results swag-labs-tests
+        docker run -v ${{ github.workspace }}/allure-results:/app/target/allure-results -v ${{ github.workspace }}/surefire-reports:/app/target/surefire-reports swag-labs-tests
       continue-on-error: true
       
     - name: 📊 Parse test results
       id: test_results
       if: always()
       run: |
-        if [ -f "allure-results/testng-results.xml" ]; then
-          TOTAL=$(grep -oP 'total="\K[0-9]+' allure-results/testng-results.xml | head -1 || echo "0")
-          PASSED=$(grep -oP 'passed="\K[0-9]+' allure-results/testng-results.xml | head -1 || echo "0")
-          FAILED=$(grep -oP 'failed="\K[0-9]+' allure-results/testng-results.xml | head -1 || echo "0")
-          SKIPPED=$(grep -oP 'skipped="\K[0-9]+' allure-results/testng-results.xml | head -1 || echo "0")
+        if [ -f "surefire-reports/testng-results.xml" ]; then
+          TOTAL=$(grep -oP 'total="\K[0-9]+' surefire-reports/testng-results.xml | head -1 || echo "0")
+          PASSED=$(grep -oP 'passed="\K[0-9]+' surefire-reports/testng-results.xml | head -1 || echo "0")
+          FAILED=$(grep -oP 'failed="\K[0-9]+' surefire-reports/testng-results.xml | head -1 || echo "0")
+          SKIPPED=$(grep -oP 'skipped="\K[0-9]+' surefire-reports/testng-results.xml | head -1 || echo "0")
         else
           TOTAL=0
           PASSED=0
