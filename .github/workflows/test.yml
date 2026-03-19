@@ -1,0 +1,71 @@
+name: Docker Test Automation
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Build Docker image
+      run: docker build -t swag-labs-tests .
+      
+    - name: Run tests in container
+      run: |
+        docker run -v ${{ github.workspace }}/allure-results:/app/target/allure-results swag-labs-tests
+      continue-on-error: true
+      
+    - name: Generate Allure Report
+      uses: simple-elf/allure-report-action@master
+      if: always()
+      with:
+        allure_results: allure-results
+        allure_history: allure-history
+        
+    - name: Deploy Allure Report to GitHub Pages
+      if: always()
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: allure-history
+        
+    - name: Send Email Notification
+      if: always()
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.EMAIL_USERNAME }}
+        password: ${{ secrets.EMAIL_PASSWORD }}
+        subject: Test Execution Report - ${{ job.status }}
+        to: ${{ secrets.EMAIL_TO }}
+        from: Test Automation
+        body: |
+          Test execution completed with status: ${{ job.status }}
+          
+          Repository: ${{ github.repository }}
+          Branch: ${{ github.ref }}
+          Commit: ${{ github.sha }}
+          
+          View full report: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          
+    - name: Send Slack Notification
+      if: always()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        text: |
+          Test Execution: ${{ job.status }}
+          Repository: ${{ github.repository }}
+          Branch: ${{ github.ref_name }}
+        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
