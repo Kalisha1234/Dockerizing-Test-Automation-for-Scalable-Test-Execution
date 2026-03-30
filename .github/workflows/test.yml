@@ -29,6 +29,34 @@ jobs:
         docker run -v ${{ github.workspace }}/allure-results:/app/target/allure-results -v ${{ github.workspace }}/surefire-reports:/app/target/surefire-reports swag-labs-tests
       continue-on-error: true
       
+    - name: 🔍 Debug - Check secrets availability
+      if: always()
+      run: |
+        echo "Checking if secrets are configured..."
+        if [ -z "${{ secrets.EMAIL_USERNAME }}" ]; then
+          echo "❌ EMAIL_USERNAME secret is missing"
+        else
+          echo "✅ EMAIL_USERNAME secret is configured"
+        fi
+        
+        if [ -z "${{ secrets.EMAIL_PASSWORD }}" ]; then
+          echo "❌ EMAIL_PASSWORD secret is missing"
+        else
+          echo "✅ EMAIL_PASSWORD secret is configured"
+        fi
+        
+        if [ -z "${{ secrets.EMAIL_TO }}" ]; then
+          echo "❌ EMAIL_TO secret is missing"
+        else
+          echo "✅ EMAIL_TO secret is configured"
+        fi
+        
+        if [ -z "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+          echo "❌ SLACK_WEBHOOK_URL secret is missing"
+        else
+          echo "✅ SLACK_WEBHOOK_URL secret is configured"
+        fi
+        
     - name: 🔍 Debug - List generated files
       if: always()
       run: |
