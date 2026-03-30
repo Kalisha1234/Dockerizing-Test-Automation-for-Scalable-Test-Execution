@@ -26,7 +26,19 @@ jobs:
     - name: 🧪 Run tests in container
       id: test_run
       run: |
-        docker run -v ${{ github.workspace }}/allure-results:/app/target/allure-results -v ${{ github.workspace }}/surefire-reports:/app/target/surefire-reports swag-labs-tests
+        # Create directories with proper permissions
+        mkdir -p allure-results surefire-reports
+        chmod 777 allure-results surefire-reports
+        
+        # Run tests without mounting volumes that cause permission issues
+        docker run --name test-container swag-labs-tests
+        
+        # Copy results from container to host
+        docker cp test-container:/app/target/allure-results/. ./allure-results/ || echo "No allure-results to copy"
+        docker cp test-container:/app/target/surefire-reports/. ./surefire-reports/ || echo "No surefire-reports to copy"
+        
+        # Clean up container
+        docker rm test-container
       continue-on-error: true
       
     - name: 🔍 Debug - Check secrets availability
