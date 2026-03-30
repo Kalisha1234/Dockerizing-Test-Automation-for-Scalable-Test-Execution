@@ -71,21 +71,37 @@ jobs:
       id: test_results
       if: always()
       run: |
+        TOTAL=0
+        PASSED=0
+        FAILED=0
+        SKIPPED=0
+        
+        # Try multiple locations for test results
         if [ -f "surefire-reports/testng-results.xml" ]; then
           echo "Found testng-results.xml in surefire-reports"
-          cat surefire-reports/testng-results.xml
           TOTAL=$(grep -oP 'total="\K[0-9]+' surefire-reports/testng-results.xml | head -1 || echo "0")
           PASSED=$(grep -oP 'passed="\K[0-9]+' surefire-reports/testng-results.xml | head -1 || echo "0")
           FAILED=$(grep -oP 'failed="\K[0-9]+' surefire-reports/testng-results.xml | head -1 || echo "0")
           SKIPPED=$(grep -oP 'skipped="\K[0-9]+' surefire-reports/testng-results.xml | head -1 || echo "0")
+        elif [ -f "target/surefire-reports/testng-results.xml" ]; then
+          echo "Found testng-results.xml in target/surefire-reports"
+          TOTAL=$(grep -oP 'total="\K[0-9]+' target/surefire-reports/testng-results.xml | head -1 || echo "0")
+          PASSED=$(grep -oP 'passed="\K[0-9]+' target/surefire-reports/testng-results.xml | head -1 || echo "0")
+          FAILED=$(grep -oP 'failed="\K[0-9]+' target/surefire-reports/testng-results.xml | head -1 || echo "0")
+          SKIPPED=$(grep -oP 'skipped="\K[0-9]+' target/surefire-reports/testng-results.xml | head -1 || echo "0")
         else
-          echo "testng-results.xml not found, checking alternative locations"
-          TOTAL=0
-          PASSED=0
-          FAILED=0
-          SKIPPED=0
+          # Try to count from allure results JSON files
+          echo "testng-results.xml not found, trying to count from allure results"
+          if [ -d "allure-results" ]; then
+            TOTAL=$(find allure-results -name "*-result.json" | wc -l)
+            PASSED=$(grep -l '"status":"passed"' allure-results/*-result.json 2>/dev/null | wc -l || echo "0")
+            FAILED=$(grep -l '"status":"failed"' allure-results/*-result.json 2>/dev/null | wc -l || echo "0")
+            SKIPPED=$(grep -l '"status":"skipped"' allure-results/*-result.json 2>/dev/null | wc -l || echo "0")
+            echo "Counted from allure results: Total=$TOTAL, Passed=$PASSED, Failed=$FAILED, Skipped=$SKIPPED"
+          fi
         fi
-        echo "Results: Total=$TOTAL, Passed=$PASSED, Failed=$FAILED, Skipped=$SKIPPED"
+        
+        echo "Final Results: Total=$TOTAL, Passed=$PASSED, Failed=$FAILED, Skipped=$SKIPPED"
         echo "total=$TOTAL" >> $GITHUB_OUTPUT
         echo "passed=$PASSED" >> $GITHUB_OUTPUT
         echo "failed=$FAILED" >> $GITHUB_OUTPUT
